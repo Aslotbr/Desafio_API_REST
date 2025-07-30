@@ -29,7 +29,7 @@ public ResponseEntity<Map<String, String>> uploadFiles(@RequestParam("files") Mu
     }
 }
 
-// GET: Retorna dados processados com filtros opcionais
+// GET: Consulta geral de pedidos com filtros opcionais (orderId, data inicial, data final)
 @GetMapping(value = "/dados", produces = MediaType.APPLICATION_JSON_VALUE)
 public ResponseEntity<List<UserOrdersDTO>> getDados(
         @RequestParam(value = "orderId", required = false) Long orderId,
