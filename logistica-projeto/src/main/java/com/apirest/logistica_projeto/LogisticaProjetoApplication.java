@@ -1,13 +1,13 @@
-package com.felipe.logistica.logistica;
+package com.apirest.logistica_projeto;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class LogisticaApplication {
+public class LogisticaProjetoApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(LogisticaApplication.class, args);
+		SpringApplication.run(LogisticaProjetoApplication.class, args);
 	}
 
 }
