@@ -1,59 +1,73 @@
 package com.apirest.logistica_projeto.dto;
 
-import java.text.DecimalFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.ArrayList;
 import java.util.List;
 
 public class OrderDTO {
-    private Long orderId;
-    private String date;
-    private transient Double total = 0.0; // mantemos o valor numérico para cálculo
-    private String totalFormatted; // usado para exibição
-    private List<ProductDTO> products = new ArrayList<>();
+    @JsonProperty("order_id")
+private Long orderId;
 
-    public OrderDTO() {}
+@JsonProperty("date")
+private String date;
 
-    public OrderDTO(Long orderId, String date, Double total) {
-        this.orderId = orderId;
-        this.date = date;
-        setTotal(total);
-    }
+// Campo usado internamente, não será serializado diretamente
+@JsonIgnore
+private Double total = 0.0;
 
-    public Long getOrderId() {
-        return orderId;
-    }
+@JsonProperty("total")
+private String totalFormatted;
 
-    public void setOrderId(Long orderId) {
-        this.orderId = orderId;
-    }
+@JsonProperty("products")
+private List<ProductDTO> products = new ArrayList<>();
 
-    public String getDate() {
-        return date;
-    }
+public OrderDTO() {}
 
-    public void setDate(String date) {
-        this.date = date;
-    }
+public OrderDTO(Long orderId, String date) {
+    this.orderId = orderId;
+    this.date = date;
+    this.total = 0.0;
+    this.totalFormatted = "0.00";
+}
 
-    public Double getTotal() {
-        return total;
-    }
+public Long getOrderId() {
+    return orderId;
+}
 
-    public String getTotalFormatted() {
-        return totalFormatted;
-    }
+public void setOrderId(Long orderId) {
+    this.orderId = orderId;
+}
 
-    public void setTotal(Double total) {
-        this.total = total;
-        DecimalFormat df = new DecimalFormat("0.00");
-        this.totalFormatted = df.format(total);
-    }
+public String getDate() {
+    return date;
+}
 
-    public List<ProductDTO> getProducts() {
-        return products;
-    }
+public void setDate(String date) {
+    this.date = date;
+}
 
-    public void setProducts(List<ProductDTO> products) {
-        this.products = products;
-    }
+@JsonIgnore
+public Double getTotal() {
+    return total;
+}
+
+@JsonProperty("total")
+public String getTotalFormatted() {
+    return totalFormatted;
+}
+
+public void setTotal(Double total) {
+    this.total = total;
+    this.totalFormatted = String.format("%.2f", total);
+}
+
+public List<ProductDTO> getProducts() {
+    return products;
+}
+
+public void setProducts(List<ProductDTO> products) {
+    this.products = products;
+}
 }

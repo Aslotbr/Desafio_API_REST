@@ -9,113 +9,127 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 @Service
 public class FileProcessorService {
-private final List<UserOrdersDTO> allData = new ArrayList<>();
-public void processFiles(MultipartFile[] files) throws Exception {
-    allData.clear(); // limpa dados anteriores
+    private final Map<Long, UserOrdersDTO> dadosProcessados = new HashMap<>();
 
+// Regex aceita ponto ou vírgula como separador decimal
+private static final Pattern pattern = Pattern.compile(
+    "(\\d{10})\\s*(.{1,45}?)(\\d{10})(\\d{10})\\s+(\\d+[\\.,]\\d{2})(\\d{8})"
+);
+
+private static final DateTimeFormatter inputDateFormat = DateTimeFormatter.ofPattern("yyyyMMdd");
+private static final DateTimeFormatter outputDateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
+public void processFiles(MultipartFile[] files) {
     for (MultipartFile file : files) {
-        System.out.println("📄 Processando arquivo: " + file.getOriginalFilename());
-        processSingleFile(file);
+        List<UserOrdersDTO> parsed = processFile(file);
+        mergeData(parsed);
     }
 }
 
-private void processSingleFile(MultipartFile file) throws Exception {
-    BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8));
-    String line;
-    Map<Long, UserOrdersDTO> userMap = new HashMap<>();
+public List<UserOrdersDTO> processFile(MultipartFile file) {
+    Map<Long, UserOrdersDTO> tempMap = new HashMap<>();
 
-    Pattern pattern = Pattern.compile("^(\\d{10})\\s+(.*?)\\s+(\\d{10})(\\d{10})(\\s*[\\d\\.]+)(\\d{8})$");
+    try (BufferedReader reader = new BufferedReader(
+        new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
 
-    while ((line = reader.readLine()) != null) {
-        line = line.trim();
-        if (line.length() < 78) {
-            System.err.println("⚠️ Ignorada (linha muito curta): " + line);
-            continue;
-        }
-
-        try {
+        String line;
+        while ((line = reader.readLine()) != null) {
             Matcher matcher = pattern.matcher(line);
-            if (matcher.matches()) {
-                Long userId = Long.parseLong(matcher.group(1).trim());
-                String userName = matcher.group(2).trim();
-                Long orderId = Long.parseLong(matcher.group(3).trim());
-                Long productId = Long.parseLong(matcher.group(4).trim());
-                Double value = Double.parseDouble(matcher.group(5).trim());
-                String date = matcher.group(6).trim();
+            if (!matcher.matches()) continue;
 
-                UserOrdersDTO user = userMap.computeIfAbsent(userId, id -> new UserOrdersDTO(userId, userName));
+            Long userId = Long.parseLong(matcher.group(1));
+            String userName = matcher.group(2).trim();
+            Long orderId = Long.parseLong(matcher.group(3));
+            Long productId = Long.parseLong(matcher.group(4));
 
-                OrderDTO order = user.getOrders().stream()
-                        .filter(o -> o.getOrderId().equals(orderId))
-                        .findFirst()
-                        .orElseGet(() -> {
-                            OrderDTO newOrder = new OrderDTO(orderId, date, 0.0);
-                            user.getOrders().add(newOrder);
-                            return newOrder;
-                        });
+            // Trata vírgula como ponto para conversão segura
+            String valorBruto = matcher.group(5).replace(",", ".");
+            Double value = Double.parseDouble(valorBruto);
 
-                order.getProducts().add(new ProductDTO(productId, value));
-                order.setTotal(order.getTotal() + value);
-            } else {
-                System.err.println("❌ Ignorada (regex não casou): " + line);
-            }
-        } catch (Exception e) {
-            System.err.println("❌ Erro ao processar linha: [" + line + "]");
-            e.printStackTrace();
+            String dateStr = LocalDate.parse(matcher.group(6), inputDateFormat)
+                                       .format(outputDateFormat);
+
+            UserOrdersDTO user = tempMap.computeIfAbsent(userId, id -> {
+                UserOrdersDTO u = new UserOrdersDTO();
+                u.setUserId(id);
+                u.setName(userName);
+                return u;
+            });
+
+            OrderDTO order = user.getOrders().stream()
+                .filter(o -> o.getOrderId().equals(orderId))
+                .findFirst()
+                .orElseGet(() -> {
+                    OrderDTO o = new OrderDTO();
+                    o.setOrderId(orderId);
+                    o.setDate(dateStr);
+                    user.getOrders().add(o);
+                    return o;
+                });
+
+            ProductDTO product = new ProductDTO(productId, value);
+            order.getProducts().add(product);
+
+            // Total calculado com precisão
+            double novoTotal = order.getProducts().stream()
+                .mapToDouble(ProductDTO::getRawValue)
+                .sum();
+            order.setTotal(novoTotal);
         }
+
+    } catch (Exception e) {
+        throw new RuntimeException("Erro ao processar arquivo: " + e.getMessage(), e);
     }
 
-    allData.addAll(userMap.values());
+    return new ArrayList<>(tempMap.values());
+}
+
+private void mergeData(List<UserOrdersDTO> novos) {
+    for (UserOrdersDTO novo : novos) {
+        dadosProcessados.merge(novo.getUserId(), novo, (existente, recebido) -> {
+            existente.getOrders().addAll(recebido.getOrders());
+            return existente;
+        });
+    }
 }
 
 public List<UserOrdersDTO> filterData(Long orderId, String startDate, String endDate) {
-    if (allData.isEmpty()) return Collections.emptyList();
+    List<UserOrdersDTO> filtrados = new ArrayList<>();
+    LocalDate start = parseDate(startDate);
+    LocalDate end = parseDate(endDate);
 
-    SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
-    Date parsedStart = null;
-    Date parsedEnd = null;
+    for (UserOrdersDTO user : dadosProcessados.values()) {
+        UserOrdersDTO clone = new UserOrdersDTO(user.getUserId(), user.getName());
 
-    try {
-        if (startDate != null) parsedStart = sdf.parse(startDate);
-        if (endDate != null) parsedEnd = sdf.parse(endDate);
-    } catch (Exception e) {
-        System.err.println("⚠️ Datas inválidas no filtro: " + e.getMessage());
-        return Collections.emptyList();
+        for (OrderDTO order : user.getOrders()) {
+            boolean matchOrder = (orderId == null || order.getOrderId().equals(orderId));
+            LocalDate orderDate = LocalDate.parse(order.getDate(), outputDateFormat);
+            boolean matchDate = (start == null || !orderDate.isBefore(start)) &&
+                                (end == null || !orderDate.isAfter(end));
+
+            if (matchOrder && matchDate) {
+                clone.getOrders().add(order);
+            }
+        }
+
+        if (!clone.getOrders().isEmpty()) {
+            filtrados.add(clone);
+        }
     }
 
-    final Date finalStart = parsedStart;
-    final Date finalEnd = parsedEnd;
+    return filtrados;
+}
 
-    return allData.stream()
-            .map(user -> {
-                List<OrderDTO> filteredOrders = user.getOrders().stream()
-                        .filter(order -> {
-                            boolean matchOrderId = (orderId == null || order.getOrderId().equals(orderId));
-                            boolean matchDate = true;
-                            try {
-                                Date orderDate = sdf.parse(order.getDate());
-                                if (finalStart != null && orderDate.before(finalStart)) matchDate = false;
-                                if (finalEnd != null && orderDate.after(finalEnd)) matchDate = false;
-                            } catch (Exception ignored) {}
-                            return matchOrderId && matchDate;
-                        })
-                        .collect(Collectors.toList());
-
-                if (filteredOrders.isEmpty()) return null;
-
-                UserOrdersDTO filteredUser = new UserOrdersDTO(user.getUserId(), user.getName());
-                filteredUser.setOrders(filteredOrders);
-                return filteredUser;
-            })
-            .filter(Objects::nonNull)
-            .collect(Collectors.toList());
+private LocalDate parseDate(String date) {
+    if (date == null || date.isBlank()) return null;
+    return LocalDate.parse(date, outputDateFormat);
 }
 }

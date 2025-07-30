@@ -1,41 +1,48 @@
 package com.apirest.logistica_projeto.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.ArrayList;
 import java.util.List;
 
 public class UserOrdersDTO {
-    private Long userId;
-    private String name;
-    private List<OrderDTO> orders = new ArrayList<>();
+    @JsonProperty("user_id")
+private Long userId;
 
-    public UserOrdersDTO() {}
+@JsonProperty("name")
+private String name;
 
-    public UserOrdersDTO(Long userId, String name) {
-        this.userId = userId;
-        this.name = name;
-    }
+@JsonProperty("orders")
+private List<OrderDTO> orders = new ArrayList<>();
 
-    public Long getUserId() {
-        return userId;
-    }
+public UserOrdersDTO() {}
 
-    public void setUserId(Long userId) {
-        this.userId = userId;
-    }
+public UserOrdersDTO(Long userId, String name) {
+    this.userId = userId;
+    this.name = name;
+}
 
-    public String getName() {
-        return name;
-    }
+public Long getUserId() {
+    return userId;
+}
 
-    public void setName(String name) {
-        this.name = name;
-    }
+public void setUserId(Long userId) {
+    this.userId = userId;
+}
 
-    public List<OrderDTO> getOrders() {
-        return orders;
-    }
+public String getName() {
+    return name;
+}
 
-    public void setOrders(List<OrderDTO> orders) {
-        this.orders = orders;
-    }
+public void setName(String name) {
+    this.name = name;
+}
+
+public List<OrderDTO> getOrders() {
+    return orders;
+}
+
+public void setOrders(List<OrderDTO> orders) {
+    this.orders = orders;
+}
 }
