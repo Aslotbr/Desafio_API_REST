@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/arquivo")
@@ -17,14 +18,15 @@ public class FileUploadController {
     @Autowired
     private FileProcessorService fileProcessorService;
 
-    // POST: Faz upload de arquivo .txt
-    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<String> uploadFile(@RequestParam("file") MultipartFile file) {
+    // POST: Faz upload de múltiplos arquivos .txt
+    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, String>> uploadFiles(@RequestParam("files") MultipartFile[] files) {
         try {
-            fileProcessorService.processFile(file);
-            return ResponseEntity.ok("Arquivo processado com sucesso!");
+            fileProcessorService.processFiles(files);
+            return ResponseEntity.ok(Map.of("message", "Arquivos processados com sucesso!"));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Erro ao processar arquivo: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body(Map.of("error", "Erro ao processar arquivos: " + e.getMessage()));
         }
     }
 
