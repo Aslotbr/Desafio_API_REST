@@ -25,8 +25,8 @@ class FileProcessorServiceExtraTest {
     @Test
     @DisplayName("processFiles deve processar múltiplos arquivos e agrupar dados")
     void testProcessFiles_multipleFiles() {
-        String linha1 = "0000000001                              Usuario Teste00000000010000000001     100.0020250101";
-        String linha2 = "0000000002                              Outro Usuario00000000020000000002     200.0020250202";
+        String linha1 = "0000000070                              Palmer Prosacco00000007530000000003     1836.7420210308";
+        String linha2 = "0000000075                                  Bobbie Batz00000007980000000002     1578.5720211116";
 
         MockMultipartFile file1 = new MockMultipartFile("files", "data1.txt", "text/plain", linha1.getBytes(StandardCharsets.UTF_8));
         MockMultipartFile file2 = new MockMultipartFile("files", "data2.txt", "text/plain", linha2.getBytes(StandardCharsets.UTF_8));
@@ -35,59 +35,61 @@ class FileProcessorServiceExtraTest {
         List<UserOrdersDTO> result = service.filterData(null, null, null);
 
         assertEquals(2, result.size());
-        assertEquals(1L, result.get(0).getUserId());
-        assertEquals(2L, result.get(1).getUserId());
+        assertEquals(70L, result.get(0).getUserId());
+        assertEquals(75L, result.get(1).getUserId());
     }
 
     @Test
     @DisplayName("filterData sem filtros deve retornar todos os pedidos")
     void testFilterData_noFilters() {
-        String linha = "0000000001                              Usuario Teste00000000010000000001     100.0020250101";
-        service.processFile(new MockMultipartFile("file", "data.txt", "text/plain", linha.getBytes(StandardCharsets.UTF_8)));
+        String linha = "0000000049                               Ken Wintheiser00000005230000000003      586.7420210903";
+        service.processFiles(new MockMultipartFile[]{
+            new MockMultipartFile("file", "data.txt", "text/plain", linha.getBytes(StandardCharsets.UTF_8))
+        });
 
         List<UserOrdersDTO> result = service.filterData(null, null, null);
         assertEquals(1, result.size());
     }
-
     @Test
     @DisplayName("filterData com orderId deve filtrar corretamente")
     void testFilterData_byOrderId() {
-        String linha1 = "0000000001                              Usuario Teste00000000010000000001     100.0020250101";
-        String linha2 = "0000000001                              Usuario Teste00000000020000000002     200.0020250201";
+        String linha1 = "0000000033                             Armando Boehm IV00000003700000000005     1259.7720210430";
+        String linha2 = "0000000071                               Everett Beahan00000007640000000007      457.6420210905";
 
         service.processFiles(new MockMultipartFile[]{
                 new MockMultipartFile("files", "f1.txt", "text/plain", linha1.getBytes(StandardCharsets.UTF_8)),
                 new MockMultipartFile("files", "f2.txt", "text/plain", linha2.getBytes(StandardCharsets.UTF_8))
         });
 
-        List<UserOrdersDTO> result = service.filterData(1000000001L, null, null);
+        // Corrigi o ID para realmente existir na linha (370)
+        List<UserOrdersDTO> result = service.filterData(370L, null, null);
 
         assertEquals(1, result.size());
         assertEquals(1, result.get(0).getOrders().size());
-        assertEquals(1000000001L, result.get(0).getOrders().get(0).getOrderId());
+        assertEquals(370L, result.get(0).getOrders().get(0).getOrderId());
     }
 
     @Test
     @DisplayName("filterData com intervalo de datas deve retornar somente pedidos no range")
     void testFilterData_byDateRange() {
-        String linha1 = "0000000001                              Usuario Teste00000000010000000001     100.0020250101"; // 2025-01-01
-        String linha2 = "0000000001                              Usuario Teste00000000020000000002     200.0020250505"; // 2025-05-05
+        String linha1 = "0000000014                                 Clelia Hills00000001460000000001      673.4920210101"; // 2021-01-01
+        String linha2 = "0000000014                                 Clelia Hills00000001470000000002      700.0020210505"; // 2021-05-05
 
         service.processFiles(new MockMultipartFile[]{
                 new MockMultipartFile("files", "f1.txt", "text/plain", linha1.getBytes(StandardCharsets.UTF_8)),
                 new MockMultipartFile("files", "f2.txt", "text/plain", linha2.getBytes(StandardCharsets.UTF_8))
         });
 
-        List<UserOrdersDTO> result = service.filterData(null, "2025-01-01", "2025-03-01");
+        List<UserOrdersDTO> result = service.filterData(null, "2021-01-01", "2021-03-01");
 
         assertEquals(1, result.size());
-        assertEquals("2025-01-01", result.get(0).getOrders().get(0).getDate());
+        assertEquals("2021-01-01", result.get(0).getOrders().get(0).getDate());
     }
 
     @Test
     @DisplayName("filterData com filtros que não retornam nada deve gerar lista vazia")
     void testFilterData_noResults() {
-        String linha = "0000000001                              Usuario Teste00000000010000000001     100.0020250101";
+        String linha = "0000000075                                  Bobbie Batz00000007980000000002     1578.5720211116";
         service.processFile(new MockMultipartFile("file", "data.txt", "text/plain", linha.getBytes(StandardCharsets.UTF_8)));
 
         List<UserOrdersDTO> result = service.filterData(999L, null, null);
